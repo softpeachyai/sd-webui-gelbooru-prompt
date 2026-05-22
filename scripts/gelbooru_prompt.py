@@ -19,13 +19,12 @@ def on_ui_settings():
 def fetch(image):
     # update hash based on image
     name = image.name
-    # image.orig_name returns the path of the image, so we need to get the name of the file from that path
-    # make this work for windows and linux
     if "\\" in name:
         name = name.split("\\")[-1]
     elif "/" in name:
         name = name.split("/")[-1]
     print("name: " + name)
+    
     hash = name.split(".")[0]
     if hash.startswith("sample_"):
         hash = hash.replace("sample_", "")
@@ -33,21 +32,40 @@ def fetch(image):
         hash = hash.replace("thumbnail_", "")
     print("hash: " + hash)
 
-    url = "https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&tags=md5:" + hash
-    req = requests.get(url)
-    data = req.json()
-    if data["@attributes"]["count"] > 1:
-        return ("No image found with that hash...")
-    else:
-        post = data["post"][0]
-        tags = post["tags"]
+    # === ADD YOUR CREDENTIALS HERE ===
+    api_key = "YOUR_API_KEY_HERE"
+    user_id = "YOUR_USER_ID_HERE"
+    # =================================
 
-        parsed = []
-        for tag in tags.split():
-            tag = tag.replace("_", " ")
-            parsed.append(tag)
-        parsed = (", ").join(parsed)
-        return (parsed)
+    url = f"https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&tags=md5:{hash}&api_key={api_key}&user_id={user_id}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36'
+    }
+    
+    req = requests.get(url, headers=headers)
+    print("Status code:", req.status_code)   # ← for debugging
+    
+    if req.status_code != 200:
+        return f"Error: HTTP {req.status_code} from Gelbooru"
+    
+    try:
+        data = req.json()
+    except Exception as e:
+        print("Raw response:", req.text[:500])  # debug
+        return "Failed to parse JSON (possibly blocked or rate limited)"
+
+    if not data or "@attributes" not in data or data["@attributes"].get("count", 0) == 0:
+        return "No image found with that hash..."
+
+    post = data["post"][0]
+    tags = post["tags"]
+
+    parsed = []
+    for tag in tags.split():
+        tag = tag.replace("_", " ")
+        parsed.append(tag)
+    return ", ".join(parsed)
 
 
 class BooruPromptsScript(scripts.Script):
